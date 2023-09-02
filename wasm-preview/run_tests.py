@@ -17,25 +17,29 @@ sys.setrecursionlimit(200)
 
 async def main(tests_zip: str, tag_name: str):
     print(f'Using pyodide version: {pyodide.__version__}')
-    print(f'Extracting test files (size: {len(tests_zip):,})...')
-    # File saved on the GH release
-    pydantic_core_wheel = (
-        'https://githubproxy.samuelcolvin.workers.dev/pydantic/pydantic-core/releases/'
-        f'download/{tag_name}/pydantic_core-{tag_name.lstrip("v")}-cp311-cp311-emscripten_3_1_32_wasm32.whl'
-    )
-    zip_file = ZipFile(BytesIO(base64.b64decode(tests_zip)))
-    count = 0
-    for name in zip_file.namelist():
-        if name.endswith('.py'):
-            path, subs = re.subn(r'^pydantic-core-.+?/tests/', 'tests/', name)
-            if subs:
-                count += 1
-                path = Path(path)
-                path.parent.mkdir(parents=True, exist_ok=True)
-                with zip_file.open(name, 'r') as f:
-                    path.write_bytes(f.read())
+    if tag_name == 'local':
+        print('Using local pydantic-core build')
+        pydantic_core_wheel = '../python/pydantic_core'
+    else:
+        print(f'Extracting test files (size: {len(tests_zip):,})...')
+        # File saved on the GH release
+        pydantic_core_wheel = (
+            'https://githubproxy.samuelcolvin.workers.dev/pydantic/pydantic-core/releases/'
+            f'download/{tag_name}/pydantic_core-{tag_name.lstrip("v")}-cp311-cp311-emscripten_3_1_32_wasm32.whl'
+        )
+        zip_file = ZipFile(BytesIO(base64.b64decode(tests_zip)))
+        count = 0
+        for name in zip_file.namelist():
+            if name.endswith('.py'):
+                path, subs = re.subn(r'^pydantic-core-.+?/tests/', 'tests/', name)
+                if subs:
+                    count += 1
+                    path = Path(path)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    with zip_file.open(name, 'r') as f:
+                        path.write_bytes(f.read())
 
-    print(f'Mounted {count} test files, installing dependencies...')
+        print(f'Mounted {count} test files, installing dependencies...')
 
     await micropip.install(['dirty-equals', 'hypothesis', 'pytest-speed', 'pytest-mock', pydantic_core_wheel])
     importlib.invalidate_caches()
